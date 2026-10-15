@@ -1,71 +1,205 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Campus Cybersecurity Platform</title>
-<style>
-:root{--bg:#f6f8fb;--fg:#1b2430;--card:#fff;--ac:#1f6feb;--cr:#d1342f;--bd:#d8dee8}
-@media(prefers-color-scheme:dark){:root{--bg:#0f1620;--fg:#e6edf5;--card:#18222f;--ac:#58a6ff;--cr:#ff6b64;--bd:#2c3a4b}}
-body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--fg)}
-header{padding:20px;background:var(--ac);color:#fff}header h1{margin:0;font-size:1.4rem}
-main{max-width:1000px;margin:auto;padding:16px}
-section{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:16px;overflow-x:auto}
-table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{border-bottom:1px solid var(--bd);padding:6px;text-align:left}
-.crit{color:var(--cr);font-weight:600}
-.row{display:flex;align-items:center;margin:4px 0;font-size:.85rem}.lbl{width:190px;flex:none}
-.track{position:relative;height:20px;flex:1;min-width:400px}
-.bar{position:absolute;height:20px;border-radius:4px;background:var(--ac)}.bar.c{background:var(--cr)}
-</style></head><body>
-<header><h1>Campus Cybersecurity Platform</h1>
-<div>Gantt &amp; PERT-based project plan | SDG 9: Industry, Innovation and Infrastructure</div></header>
-<main>
-<section><h2>PERT / CPM Task Table (days)</h2>
-<table id="tbl"><thead><tr><th>ID</th><th>Task</th><th>Pred.</th><th>O</th><th>M</th><th>P</th><th>TE</th><th>ES</th><th>EF</th><th>LS</th><th>LF</th><th>Slack</th></tr></thead><tbody></tbody></table>
-<p id="sum"></p></section>
-<section><h2>Gantt Chart</h2><div id="gantt"></div><p><span class="crit">Red</span> = critical path</p></section>
-<section><h2>Add Task</h2>
-<input id="n" placeholder="Task name"> <input id="pr" placeholder="Pred. IDs e.g. A,B" size="10">
-<input id="o" type="number" min="0" placeholder="O" style="width:50px"> <input id="m" type="number" min="0" placeholder="M" style="width:50px"> <input id="p" type="number" min="0" placeholder="P" style="width:50px">
-<button id="add">Add</button></section>
-</main>
-<script>
-var tasks=[
-{id:"A",name:"Requirements & threat scope",pre:[],o:2,m:3,p:4},
-{id:"B",name:"Network security audit",pre:["A"],o:3,m:4,p:6},
-{id:"C",name:"Risk assessment",pre:["A"],o:2,m:3,p:5},
-{id:"D",name:"Firewall & IDS setup",pre:["B","C"],o:4,m:6,p:8},
-{id:"E",name:"Awareness training",pre:["C"],o:3,m:5,p:7},
-{id:"F",name:"Penetration testing",pre:["D"],o:3,m:4,p:7},
-{id:"G",name:"Incident response plan",pre:["D","E"],o:2,m:3,p:4},
-{id:"H",name:"Final report",pre:["F","G"],o:1,m:2,p:3}];
-function calc(){
- var by={};tasks.forEach(function(t){by[t.id]=t;t.te=(t.o+4*t.m+t.p)/6;});
- tasks.forEach(function(t){t.es=Math.max.apply(null,[0].concat(t.pre.map(function(i){return by[i]?by[i].ef:0;})));t.ef=t.es+t.te;});
- var end=Math.max.apply(null,tasks.map(function(t){return t.ef;}));
- for(var i=tasks.length-1;i>=0;i--){var t=tasks[i];
-  var s=tasks.filter(function(x){return x.pre.indexOf(t.id)>-1;});
-  t.lf=s.length?Math.min.apply(null,s.map(function(x){return x.ls;})):end;
-  t.ls=t.lf-t.te;t.slack=t.ls-t.es;t.crit=Math.abs(t.slack)<0.001;}
- return end;}
-function f(x){return x.toFixed(1);}
-function render(){
- var end=calc(),tb=document.querySelector("#tbl tbody"),g=document.getElementById("gantt");tb.innerHTML="";g.innerHTML="";
- tasks.forEach(function(t){
-  var tr=document.createElement("tr");if(t.crit)tr.className="crit";
-  [t.id,t.name,t.pre.join(",")||"-",t.o,t.m,t.p,f(t.te),f(t.es),f(t.ef),f(t.ls),f(t.lf),f(t.slack)].forEach(function(v){var td=document.createElement("td");td.textContent=v;tr.appendChild(td);});
-  tb.appendChild(tr);
-  var r=document.createElement("div");r.className="row";
-  var l=document.createElement("div");l.className="lbl";l.textContent=t.id+". "+t.name;
-  var k=document.createElement("div");k.className="track";
-  var b=document.createElement("div");b.className="bar"+(t.crit?" c":"");
-  b.style.left=(t.es/end*100)+"%";b.style.width=(t.te/end*100)+"%";b.title=f(t.te)+" days";
-  k.appendChild(b);r.appendChild(l);r.appendChild(k);g.appendChild(r);});
- document.getElementById("sum").textContent="Project duration: "+f(end)+" days. Critical path: "+tasks.filter(function(t){return t.crit;}).map(function(t){return t.id;}).join(" > ");}
-document.getElementById("add").onclick=function(){
- var n=document.getElementById("n").value.trim(),o=+document.getElementById("o").value,m=+document.getElementById("m").value,p=+document.getElementById("p").value;
- if(!n||!(o<=m&&m<=p)||p<=0)return alert("Enter a name and O <= M <= P");
- var pre=document.getElementById("pr").value.toUpperCase().split(",").map(function(s){return s.trim();}).filter(Boolean);
- var ids=tasks.map(function(t){return t.id;});
- if(pre.some(function(i){return ids.indexOf(i)<0;}))return alert("Unknown predecessor");
- tasks.push({id:String.fromCharCode(65+tasks.length),name:n,pre:pre,o:o,m:m,p:p});render();};
-render();
-</script></body></html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Campus Cybersecurity Platform</title>
+    <style>
+        :root {
+            --bg: #f6f8fb;
+            --fg: #1b2430;
+            --card: #fff;
+            --ac: #1f6feb;
+            --cr: #d1342f;
+            --bd: #d8dee8
+        }
+
+        @media(prefers-color-scheme:dark) {
+            :root {
+                --bg: #0f1620;
+                --fg: #e6edf5;
+                --card: #18222f;
+                --ac: #58a6ff;
+                --cr: #ff6b64;
+                --bd: #2c3a4b
+            }
+        }
+
+        body {
+            margin: 0;
+            font-family: system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--fg)
+        }
+
+        header {
+            padding: 20px;
+            background: var(--ac);
+            color: #fff
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.4rem
+        }
+
+        main {
+            max-width: 1000px;
+            margin: auto;
+            padding: 16px
+        }
+
+        section {
+            background: var(--card);
+            border: 1px solid var(--bd);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 16px;
+            overflow-x: auto
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: .9rem
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--bd);
+            padding: 6px;
+            text-align: left
+        }
+
+        .crit {
+            color: var(--cr);
+            font-weight: 600
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            margin: 4px 0;
+            font-size: .85rem
+        }
+
+        .lbl {
+            width: 190px;
+            flex: none
+        }
+
+        .track {
+            position: relative;
+            height: 20px;
+            flex: 1;
+            min-width: 400px
+        }
+
+        .bar {
+            position: absolute;
+            height: 20px;
+            border-radius: 4px;
+            background: var(--ac)
+        }
+
+        .bar.c {
+            background: var(--cr)
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>Campus Cybersecurity Platform</h1>
+        <div>Gantt &amp; PERT-based project plan | SDG 9: Industry, Innovation and Infrastructure</div>
+    </header>
+    <main>
+        <section>
+            <h2>PERT / CPM Task Table (days)</h2>
+            <table id="tbl">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Task</th>
+                        <th>Pred.</th>
+                        <th>O</th>
+                        <th>M</th>
+                        <th>P</th>
+                        <th>TE</th>
+                        <th>ES</th>
+                        <th>EF</th>
+                        <th>LS</th>
+                        <th>LF</th>
+                        <th>Slack</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p id="sum"></p>
+        </section>
+        <section>
+            <h2>Gantt Chart</h2>
+            <div id="gantt"></div>
+            <p><span class="crit">Red</span> = critical path</p>
+        </section>
+        <section>
+            <h2>Add Task</h2>
+            <input id="n" placeholder="Task name"> <input id="pr" placeholder="Pred. IDs e.g. A,B" size="10">
+            <input id="o" type="number" min="0" placeholder="O" style="width:50px"> <input id="m" type="number" min="0"
+                placeholder="M" style="width:50px"> <input id="p" type="number" min="0" placeholder="P"
+                style="width:50px">
+            <button id="add">Add</button>
+        </section>
+    </main>
+    <script>
+        var tasks = [
+            { id: "A", name: "Requirements & threat scope", pre: [], o: 2, m: 3, p: 4 },
+            { id: "B", name: "Network security audit", pre: ["A"], o: 3, m: 4, p: 6 },
+            { id: "C", name: "Risk assessment", pre: ["A"], o: 2, m: 3, p: 5 },
+            { id: "D", name: "Firewall & IDS setup", pre: ["B", "C"], o: 4, m: 6, p: 8 },
+            { id: "E", name: "Awareness training", pre: ["C"], o: 3, m: 5, p: 7 },
+            { id: "F", name: "Penetration testing", pre: ["D"], o: 3, m: 4, p: 7 },
+            { id: "G", name: "Incident response plan", pre: ["D", "E"], o: 2, m: 3, p: 4 },
+            { id: "H", name: "Final report", pre: ["F", "G"], o: 1, m: 2, p: 3 }];
+        function calc() {
+            var by = {}; tasks.forEach(function (t) { by[t.id] = t; t.te = (t.o + 4 * t.m + t.p) / 6; });
+            tasks.forEach(function (t) { t.es = Math.max.apply(null, [0].concat(t.pre.map(function (i) { return by[i] ? by[i].ef : 0; }))); t.ef = t.es + t.te; });
+            var end = Math.max.apply(null, tasks.map(function (t) { return t.ef; }));
+            for (var i = tasks.length - 1; i >= 0; i--) {
+                var t = tasks[i];
+                var s = tasks.filter(function (x) { return x.pre.indexOf(t.id) > -1; });
+                t.lf = s.length ? Math.min.apply(null, s.map(function (x) { return x.ls; })) : end;
+                t.ls = t.lf - t.te; t.slack = t.ls - t.es; t.crit = Math.abs(t.slack) < 0.001;
+            }
+            return end;
+        }
+        function f(x) { return x.toFixed(1); }
+        function render() {
+            var end = calc(), tb = document.querySelector("#tbl tbody"), g = document.getElementById("gantt"); tb.innerHTML = ""; g.innerHTML = "";
+            tasks.forEach(function (t) {
+                var tr = document.createElement("tr"); if (t.crit) tr.className = "crit";
+                [t.id, t.name, t.pre.join(",") || "-", t.o, t.m, t.p, f(t.te), f(t.es), f(t.ef), f(t.ls), f(t.lf), f(t.slack)].forEach(function (v) { var td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+                tb.appendChild(tr);
+                var r = document.createElement("div"); r.className = "row";
+                var l = document.createElement("div"); l.className = "lbl"; l.textContent = t.id + ". " + t.name;
+                var k = document.createElement("div"); k.className = "track";
+                var b = document.createElement("div"); b.className = "bar" + (t.crit ? " c" : "");
+                b.style.left = (t.es / end * 100) + "%"; b.style.width = (t.te / end * 100) + "%"; b.title = f(t.te) + " days";
+                k.appendChild(b); r.appendChild(l); r.appendChild(k); g.appendChild(r);
+            });
+            document.getElementById("sum").textContent = "Project duration: " + f(end) + " days. Critical path: " + tasks.filter(function (t) { return t.crit; }).map(function (t) { return t.id; }).join(" > ");
+        }
+        document.getElementById("add").onclick = function () {
+            var n = document.getElementById("n").value.trim(), o = +document.getElementById("o").value, m = +document.getElementById("m").value, p = +document.getElementById("p").value;
+            if (!n || !(o <= m && m <= p) || p <= 0) return alert("Enter a name and O <= M <= P");
+            var pre = document.getElementById("pr").value.toUpperCase().split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+            var ids = tasks.map(function (t) { return t.id; });
+            if (pre.some(function (i) { return ids.indexOf(i) < 0; })) return alert("Unknown predecessor");
+            tasks.push({ id: String.fromCharCode(65 + tasks.length), name: n, pre: pre, o: o, m: m, p: p }); render();
+        };
+        render();
+    </script>
+</body>
+
+</html>

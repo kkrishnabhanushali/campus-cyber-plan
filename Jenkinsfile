@@ -1,7 +1,7 @@
 pipeline {
   agent any
   environment {
-    IMAGE = "YOUR_DOCKERHUB_USER/campus-cyber-plan"
+    IMAGE = "kkrish123/campus-cyber-plan"
     TAG   = "${env.BUILD_NUMBER}"
   }
   stages {
