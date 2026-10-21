@@ -1,22 +1,41 @@
 terraform {
   required_providers {
-    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 }
-provider "aws" { region = var.region }
 
-variable "region" { default = "ap-south-1" }
-variable "docker_image" { description = "e.g. youruser/campus-cyber-plan:latest" }
-variable "my_ip_cidr" { description = "Your IP for SSH, e.g. 1.2.3.4/32" }
-variable "key_name" { description = "Existing EC2 key pair name" }
+provider "aws" {
+  region = var.region
+}
 
-data "aws_ssm_parameter" "ami" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+variable "region" {
+  default = "ap-southeast-2"
+}
+
+variable "docker_image" {
+  default = "kkrish123/campus-cyber-plan:latest"
+}
+
+data "aws_ami" "al2023_arm" {
+  most_recent = true
+  owners      = ["amazon"]
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023*-arm64"]
+  }
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
 }
 
 resource "aws_security_group" "web" {
   name        = "campus-cyber-sg"
-  description = "Allow HTTP and restricted SSH"
+  description = "Allow HTTP only"
+
   ingress {
     description = "HTTP"
     from_port   = 80
@@ -24,13 +43,7 @@ resource "aws_security_group" "web" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    description = "SSH from my IP only"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
-  }
+
   egress {
     description = "Outbound"
     from_port   = 0
@@ -41,23 +54,32 @@ resource "aws_security_group" "web" {
 }
 
 resource "aws_instance" "web" {
-  ami                    = data.aws_ssm_parameter.ami.value
-  instance_type          = "t3.micro"
-  key_name               = var.key_name
+  ami                    = data.aws_ami.al2023_arm.id
+  instance_type          = "t4g.micro"
   vpc_security_group_ids = [aws_security_group.web.id]
+
   metadata_options {
     http_tokens = "required"
   }
+
   root_block_device {
     encrypted = true
   }
+
   user_data = <<-EOT
     #!/bin/bash
     dnf install -y docker
     systemctl enable --now docker
     docker run -d --restart always -p 80:8080 ${var.docker_image}
   EOT
-  tags = { Name = "campus-cyber-plan" }
+
+  user_data_replace_on_change = true
+
+  tags = {
+    Name = "campus-cyber-plan"
+  }
 }
 
-output "website_url" { value = "http://${aws_instance.web.public_ip}" }
+output "website_url" {
+  value = "http://${aws_instance.web.public_ip}"
+}
